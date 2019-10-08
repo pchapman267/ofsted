@@ -1,0 +1,28 @@
+language: r
+r: 
+  - 3.5.2
+  
+sudo: required
+
+branches:
+  only:
+  - master
+
+cache:
+  directories:
+  - $HOME/.local/share/renv
+  - $TRAVIS_BUILD_DIR/renv/library
+
+install:
+  - Rscript -e "renv::restore()"
+  
+script:
+  - Rscript -e "source('run.R')"
+  
+deploy:
+  provider: releases
+  api_key: "$GITHUB_AUTH"
+  file: "outputs/ofsted_all.csv"
+  skip_cleanup: true
+  overwrite: true
+

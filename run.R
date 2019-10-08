@@ -1,0 +1,269 @@
+# This script creates a "clean" Ofsted time series dataset to be used consistently for analysis purposes.
+# It draws together all published datasets on the MI section of GOV.UK
+# The desired primary key combination is urn, publication_date
+# This dataset can then be used to work out the Ofsted rating of a school at any date
+
+library(dplyr)
+library(readxl)
+library(janitor)
+library(xml2)
+library(rvest)
+library(qdapRegex)
+library(lubridate)
+
+# Create temp directory ---------------------------------------------------
+
+tmp_dir <- tempdir()
+ofsted_dir <- file.path(tmp_dir, "ofsted")
+if (dir.exists(ofsted_dir)) unlink(ofsted_dir, recursive = TRUE) 
+dir.create(ofsted_dir)
+
+# Get links to all ofsted publications ----------------------------------------------
+
+url <- "https://www.gov.uk/government/statistical-data-sets/monthly-management-information-ofsteds-school-inspections-outcomes"
+
+pg <- read_html(url)
+
+monthly_files <- html_attr(html_nodes(pg, "a"), "href") %>% 
+  as_tibble() %>%
+  filter(
+    (
+    # Only excel files
+    grepl("https://assets.publishing.service.gov.uk/", value) & grepl(".xlsx", value) &
+    # Only files after specific date range
+    rm_between(value, "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/", "/", extract = TRUE) >= 522543
+    ) |
+    value %in% 
+      c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
+        "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx")
+    ) %>%
+  distinct() %>%
+  pull(value)
+
+historical_file <- "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/485634/Management_information_-_schools_-_1_Sept_2005_to_31_August_2015.xlsx"
+
+# Download files -------------------------------------------------------
+
+# Create function that downloads file with base file name to data folder
+download_w_file_name <- function(url, folder){
+  
+  download.file(url, destfile = file.path(folder, basename(url)))
+  
+}
+
+# Download
+
+num_files <- length(monthly_files)
+
+lapply(monthly_files, download_w_file_name, folder = ofsted_dir)
+
+print(paste(num_files, "files downloaded"))
+
+# Get the right tab for data from each file -------------------------------------------------
+
+excel_sheets_long <- function(file){
+  data.frame(path = file, file = basename(file), sheet = excel_sheets(file))
+}
+
+sheets <- lapply(file.path(ofsted_dir,list.files(ofsted_dir)), excel_sheets_long) %>%
+  bind_rows() %>%
+  filter(sheet %in% c("School level data", "Most recent inspections", "Latest Inspections",
+                      "Most recent Inspections", "Latest inspections" ))
+
+print(paste(nrow(sheets), "files with correct data tab"))
+
+# Create fuctions for reading in the data ---------------------------------------------
+
+read_ofsted <- function(file, sheet = 1){
+  
+  read_xlsx(file, skip = 1, sheet = sheet, na = c("NA", NA, NULL, "NULL")) %>%
+    clean_names()
+  
+}
+
+# Create intermediate fucntion that will let us loop over rows of sheets df
+read_ofsted_i <- function(i){
+  
+  read_ofsted(sheets$path[i], sheet = sheets$sheet[i])
+  
+}
+
+## Get the right columns for data from each file  --------------------------------
+
+# Create function that gets column names for all files (excluding columns not of interest)
+
+read_ofsted_colnames <- function(i){
+  
+  cols <- read_ofsted_i(i) %>%
+    colnames()
+  
+  tibble(file = sheets$file[i], col = cols) %>%
+    filter(
+      !grepl("previous", col), 
+      !grepl("short", col),
+      !grepl("at_time_of", col),
+      !(col %in% c("web_link", "school_name",
+                   "ofsted_phase", "type_of_education", "admissions_policy",
+                   "sixth_form", "faith_denomination", "ofsted_region", "region",
+                   "local_authority", "parliamentary_constituency", "postcode",
+                   "the_income_deprivation_affecting_children_index_idaci_quintile",
+                   "the_quntile_for_income_deprivation_affecting_children_index_idaci",
+                   "the_income_deprivation_affecting_children_index_idaci",
+                   "total_pupils", "school_open_date", "designated_religious_character",
+                   "religious_ethos", "issue_details", "the_income_deprivation_affecting_children_index_idaci_2010_quintile",
+                   "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
+                   "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
+                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
+                   "is_safeguarding_effective"
+      ))
+    )
+  
+}
+
+cols <- lapply(1:44, read_ofsted_colnames) %>%
+  bind_rows() %>%
+  group_by(col) %>%
+  count() %>%
+  ungroup() %>%
+  arrange(n)
+
+clean_cols <- cols %>%
+  mutate(
+    clean_cols = case_when(
+      col == "inspection_number_of_latest_full_inspection" ~ "inspection_id",
+      col %in% c("inspection_end_date", "inspection_date") ~ "inspection_date",
+      col %in% c("category_of_concern", "category") ~ "category",
+      col %in% c("outcomes_for_pupils","outcomes_for_children_and_learners") ~ "outcomes_for_children_and_learners",
+      col %in% c("sixth_form_provision_where_applicable", 
+                 "x16_19_study_programmes_where_applicable", 
+                 "x16_to_19_study_programmes", 
+                 "x16_to_19_study_programmes_where_applicable") 
+      ~ "x16_to_19_study_programmes_where_applicable",
+      col == "publication_date" ~ "publication_date",
+      n == num_files ~ col,
+      TRUE ~ "NA"
+    )
+  )
+
+# Create function that cleans ofsted column names ------------------------------------------------
+clean_ofsted <- function(df){
+  
+  cols <- colnames(df)[colnames(df) %in% clean_cols$col]
+  
+  df <- df %>%
+    select_at(vars(cols))
+  
+  colnames(df) <- clean_cols$clean_cols[match(names(df), clean_cols$col)]
+  
+  # Some of the old files dont have publication dates
+  if (!("publication_date" %in% names(df))) {
+    df <- df %>%
+      mutate(publication_date = inspection_date)
+
+    print("No publication date field, inspection date used")
+
+  }
+
+  df
+  
+}
+
+read_clean_ofsted <- function(i){
+  
+  read_ofsted_i(i) %>%
+    clean_ofsted()
+  
+}
+
+monthly_dataset <- lapply(1:nrow(sheets), read_clean_ofsted) %>%
+  bind_rows()
+
+## Clean data --------------------------------------------------------------
+
+monthly_clean_dataset <- monthly_dataset %>%
+  # Filter out rows with no data
+  filter(!is.na(inspection_id)) %>%
+  mutate(
+    # Fix inspection id where ITS missing
+    inspection_id = ifelse(!grepl("ITS", inspection_id), paste0("ITS", inspection_id), inspection_id),
+    # Some duplicates due to missing full stop
+    inspection_type = ifelse(
+      inspection_type == "Non Exempt School Inspection following a request from provider for inspection",
+      "Non Exempt School Inspection following a request from provider for inspection.", 
+      inspection_type),
+    inspection_type = ifelse(
+      inspection_type == "Exempt School Inspection following a request from provider for inspection",
+      "Exempt School Inspection following a request from provider for inspection.", 
+      inspection_type),
+    # Format date properly
+    inspection_date = as.Date(inspection_date, format = "yyyy-mm-dd"),
+    publication_date = as.Date(publication_date, format = "yyyy-mm-dd"),
+  ) %>%
+  # Remove all the duplicates from having data accross multiple months
+  distinct()
+
+# Historical data ---------------------------------------------------------
+
+## Download data -----------------------------------------------------------
+download_w_file_name(historical_file, folder = ofsted_dir)
+
+## Read and clean data -----------------------------------------------------
+
+historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information_-_schools_-_1_Sept_2005_to_31_August_2015.xlsx"), sheet = "2005-2015 Inspections", skip = 1) %>%
+  clean_names() %>%
+  transmute(
+    urn, 
+    laestab,
+    inspection_id = paste0("ITS", as.character(inspection_number)),
+    inspection_type,
+    inspection_date = as.Date(inspection_end_date, format = "yyyy-mm-dd"),
+    publication_date = as.Date(first_published_date, format = "yyyy-mm-dd"),
+    overall_effectiveness,
+    category,
+    x16_to_19_study_programmes_where_applicable = sixth_form_provision,
+    outcomes_for_children_and_learners = early_years_provision,
+    outcomes_for_children_and_learners = how_well_do_pupils_achieve,
+    quality_of_teaching_learning_and_assessment = quality_of_teaching,
+    personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
+    effectiveness_of_leadership_and_management = leadership_and_management
+  )
+
+
+# Bring together the final dataset ----------------------------------------
+
+# Bind all of the data together and remove dupliates
+ranked_data <- monthly_clean_dataset %>%
+  bind_rows(historical_clean_data) %>%
+  distinct() %>%
+  # Identify duplicates based on desired primary key: urn, inspection id
+  group_by(urn, inspection_id) %>% 
+  mutate(
+    n = n(), 
+    # Create ranking variables based on inspection date and ofsted
+    rnk_insp = rank(-as.numeric(inspection_date)), 
+    rnk_ofs = rank(overall_effectiveness + x16_to_19_study_programmes_where_applicable + early_years_provision_where_applicable + 
+                     outcomes_for_children_and_learners + quality_of_teaching_learning_and_assessment + 
+                     personal_development_behaviour_and_welfare + effectiveness_of_leadership_and_management),
+    # create overall rank to be latest date/ lowest (i.e. better) score accross all measures
+    rnk_all = rank(rnk_insp + rnk_ofs, ties.method = "first")
+  ) %>%
+  ungroup()
+
+all_data <- ranked_data %>% 
+  # Remove those duplicates
+  filter(
+    n == 1 | (n > 1 & rnk_all == 1)
+  ) %>%
+  select(-n, -rnk_insp, -rnk_ofs, -rnk_all)
+
+write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE)
+
+# Set git tags for release ------------------------------------------------
+
+max_date <- max(all_data$inspection_date)
+
+tag_name <- paste0("inspections_up_to_", tolower(months(max_date)), "_", year(max_date))
+
+git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
+
+git2r::tag(name = tag_name)
