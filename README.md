@@ -1,4 +1,4 @@
-# Ofsted MI All Data
+# Ofsted MI All Data [![Build Status](https://travis-ci.org/dfe-analytical-services/ofsted.svg?branch=master)](https://travis-ci.org/dfe-analytical-services/ofsted)
 
 ## Background
 
