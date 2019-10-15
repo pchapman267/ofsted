@@ -266,4 +266,4 @@ tag_name <- paste0("inspections_up_to_", tolower(months(max_date)), "_", year(ma
 
 git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
 
-git2r::tag(name = tag_name)
+if (!(tag_name %in% names(git2r::tags()))) git2r::tag(name = tag_name)
