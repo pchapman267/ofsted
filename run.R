@@ -34,7 +34,8 @@ monthly_files <- html_attr(html_nodes(pg, "a"), "href") %>%
     rm_between(value, "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/", "/", extract = TRUE) >= 522543
     ) |
     value %in% 
-      c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
+      c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/518183/Management_information_-_Schools_-_31_January_2016.xlsx",
+        "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
         "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx")
     ) %>%
   distinct() %>%
@@ -113,14 +114,13 @@ read_ofsted_colnames <- function(i){
                    "religious_ethos", "issue_details", "the_income_deprivation_affecting_children_index_idaci_2010_quintile",
                    "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
-                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
-                   "is_safeguarding_effective"
+                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping"
       ))
     )
   
 }
 
-cols <- lapply(1:44, read_ofsted_colnames) %>%
+cols <- lapply(1:num_files, read_ofsted_colnames) %>%
   bind_rows() %>%
   group_by(col) %>%
   count() %>%
@@ -140,6 +140,7 @@ clean_cols <- cols %>%
                  "x16_to_19_study_programmes_where_applicable") 
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
+      col == "is_safeguarding_effective" ~ "is_safeguarding_effective",
       n == num_files ~ col,
       TRUE ~ "NA"
     )
@@ -162,6 +163,15 @@ clean_ofsted <- function(df){
 
     print("No publication date field, inspection date used")
 
+  }
+  
+  # Some of the old files dont have is_safeguarding_effective
+  if (!("is_safeguarding_effective" %in% names(df))) {
+    df <- df %>%
+      mutate(is_safeguarding_effective = NA)
+    
+    print("No is_safeguarding_effective field, NA imputed")
+    
   }
 
   df
@@ -197,7 +207,7 @@ monthly_clean_dataset <- monthly_dataset %>%
       inspection_type),
     # Format date properly
     inspection_date = as.Date(inspection_date, format = "yyyy-mm-dd"),
-    publication_date = as.Date(publication_date, format = "yyyy-mm-dd"),
+    publication_date = as.Date(publication_date, format = "yyyy-mm-dd")
   ) %>%
   # Remove all the duplicates from having data accross multiple months
   distinct()
@@ -225,7 +235,8 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     outcomes_for_children_and_learners = how_well_do_pupils_achieve,
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
-    effectiveness_of_leadership_and_management = leadership_and_management
+    effectiveness_of_leadership_and_management = leadership_and_management,
+    is_safeguarding_effective = NA
   )
 
 
