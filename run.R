@@ -243,28 +243,22 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
 # Bring together the final dataset ----------------------------------------
 
 # Bind all of the data together and remove dupliates
-ranked_data <- monthly_clean_dataset %>%
+all_data <- monthly_clean_dataset %>%
   bind_rows(historical_clean_data) %>%
   distinct() %>%
-  # Identify duplicates based on desired primary key: urn, inspection id
+  # Create rank for entries based on urn and inspection id
   group_by(urn, inspection_id) %>% 
-  mutate(
-    n = n(), 
-    # Create ranking variables based on inspection date and ofsted
-    rnk_insp = rank(-as.numeric(inspection_date)), 
-    rnk_ofs = rank(overall_effectiveness + x16_to_19_study_programmes_where_applicable + early_years_provision_where_applicable + 
-                     outcomes_for_children_and_learners + quality_of_teaching_learning_and_assessment + 
-                     personal_development_behaviour_and_welfare + effectiveness_of_leadership_and_management),
-    # create overall rank to be latest date/ lowest (i.e. better) score accross all measures
-    rnk_all = rank(rnk_insp + rnk_ofs, ties.method = "first")
-  ) %>%
-  ungroup()
-
-all_data <- ranked_data %>% 
-  # Remove those duplicates
-  filter(
-    n == 1 | (n > 1 & rnk_all == 1)
-  ) %>%
+  mutate(rnk1 = rank(desc(inspection_date), ties.method = "first")) %>%
+  ungroup() %>%
+  # Filter out duplicates
+  filter(rnk1 == 1) %>%
+  # Create rank for entries based on urn and inspection date
+  group_by(urn, inspection_date) %>% 
+  mutate(rnk2 = rank(desc(publication_date), ties.method = "first")) %>%
+  ungroup() %>%
+  # Filter out duplicates
+  filter(rnk2 == 1) %>%
+  # Subset to columns of interest
   select(
     urn,laestab,inspection_id,inspection_type,inspection_date,publication_date,
     overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
