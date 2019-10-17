@@ -265,9 +265,15 @@ all_data <- ranked_data %>%
   filter(
     n == 1 | (n > 1 & rnk_all == 1)
   ) %>%
-  select(-n, -rnk_insp, -rnk_ofs, -rnk_all)
+  select(
+    urn,laestab,inspection_id,inspection_type,inspection_date,publication_date,
+    overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
+    early_years_provision_where_applicable,outcomes_for_children_and_learners,
+    quality_of_teaching_learning_and_assessment,personal_development_behaviour_and_welfare,
+    effectiveness_of_leadership_and_management,is_safeguarding_effective
+  )
 
-write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE)
+write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 
 # Set git tags for release ------------------------------------------------
 
