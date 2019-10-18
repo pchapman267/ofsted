@@ -24,5 +24,3 @@ deploy:
   api_key: "$GITHUB_AUTH"
   file: "outputs/ofsted_all.csv"
   skip_cleanup: true
-  on:
-    tags: true

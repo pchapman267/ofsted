@@ -269,12 +269,44 @@ all_data <- monthly_clean_dataset %>%
 
 write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 
-# Set git tags for release ------------------------------------------------
+# Set git tags for release ---------------------------------------------------
 
-max_date <- max(all_data$inspection_date)
+print("GitHub Deployment -----------------------------------------------------")
+
+# Set git user name and email
+git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
+
+# Create tag based on latest insepction dates in all_data
+max_date <- max(all_data$inspection_date, na.rm = TRUE)
 
 tag_name <- paste0("inspections_up_to_", tolower(months(max_date)), "_", year(max_date))
 
-git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
+# Print existing tags for debugging
 
-if (!(tag_name %in% names(git2r::tags()))) git2r::tag(name = tag_name)
+print("Current tags:")
+
+print(names(git2r::tags()))
+
+# Print if the new tag suggests new data or not
+
+print("Checking if new data:")
+
+print(paste("New data = ", !(tag_name %in% names(git2r::tags()))))
+
+# Tag if new data + print status for debugging
+
+print("Tagging:")
+
+if (!(tag_name %in% names(git2r::tags()))){
+  
+  print("New data - creating new tag.")
+  
+  print(paste("New tag  = ", tag_name))
+  
+  git2r::tag(name = tag_name)
+  
+} else {
+  
+  print("Existing data - no new tag created.")
+  
+}
