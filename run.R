@@ -34,7 +34,8 @@ monthly_files <- html_attr(html_nodes(pg, "a"), "href") %>%
     rm_between(value, "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/", "/", extract = TRUE) >= 522543
     ) |
     value %in% 
-      c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
+      c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/518183/Management_information_-_Schools_-_31_January_2016.xlsx",
+        "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
         "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx")
     ) %>%
   distinct() %>%
@@ -47,7 +48,7 @@ historical_file <- "https://assets.publishing.service.gov.uk/government/uploads/
 # Create function that downloads file with base file name to data folder
 download_w_file_name <- function(url, folder){
   
-  download.file(url, destfile = file.path(folder, basename(url)))
+  download.file(url, mode="wb", destfile = file.path(folder, basename(url)))
   
 }
 
@@ -113,14 +114,13 @@ read_ofsted_colnames <- function(i){
                    "religious_ethos", "issue_details", "the_income_deprivation_affecting_children_index_idaci_2010_quintile",
                    "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
-                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
-                   "is_safeguarding_effective"
+                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping"
       ))
     )
   
 }
 
-cols <- lapply(1:44, read_ofsted_colnames) %>%
+cols <- lapply(1:num_files, read_ofsted_colnames) %>%
   bind_rows() %>%
   group_by(col) %>%
   count() %>%
@@ -140,6 +140,7 @@ clean_cols <- cols %>%
                  "x16_to_19_study_programmes_where_applicable") 
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
+      col == "is_safeguarding_effective" ~ "is_safeguarding_effective",
       n == num_files ~ col,
       TRUE ~ "NA"
     )
@@ -162,6 +163,15 @@ clean_ofsted <- function(df){
 
     print("No publication date field, inspection date used")
 
+  }
+  
+  # Some of the old files dont have is_safeguarding_effective
+  if (!("is_safeguarding_effective" %in% names(df))) {
+    df <- df %>%
+      mutate(is_safeguarding_effective = NA)
+    
+    print("No is_safeguarding_effective field, NA imputed")
+    
   }
 
   df
@@ -197,7 +207,7 @@ monthly_clean_dataset <- monthly_dataset %>%
       inspection_type),
     # Format date properly
     inspection_date = as.Date(inspection_date, format = "yyyy-mm-dd"),
-    publication_date = as.Date(publication_date, format = "yyyy-mm-dd"),
+    publication_date = as.Date(publication_date, format = "yyyy-mm-dd")
   ) %>%
   # Remove all the duplicates from having data accross multiple months
   distinct()
@@ -225,38 +235,39 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     outcomes_for_children_and_learners = how_well_do_pupils_achieve,
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
-    effectiveness_of_leadership_and_management = leadership_and_management
+    effectiveness_of_leadership_and_management = leadership_and_management,
+    is_safeguarding_effective = NA
   )
 
 
 # Bring together the final dataset ----------------------------------------
 
 # Bind all of the data together and remove dupliates
-ranked_data <- monthly_clean_dataset %>%
+all_data <- monthly_clean_dataset %>%
   bind_rows(historical_clean_data) %>%
   distinct() %>%
-  # Identify duplicates based on desired primary key: urn, inspection id
+  # Create rank for entries based on urn and inspection id
   group_by(urn, inspection_id) %>% 
-  mutate(
-    n = n(), 
-    # Create ranking variables based on inspection date and ofsted
-    rnk_insp = rank(-as.numeric(inspection_date)), 
-    rnk_ofs = rank(overall_effectiveness + x16_to_19_study_programmes_where_applicable + early_years_provision_where_applicable + 
-                     outcomes_for_children_and_learners + quality_of_teaching_learning_and_assessment + 
-                     personal_development_behaviour_and_welfare + effectiveness_of_leadership_and_management),
-    # create overall rank to be latest date/ lowest (i.e. better) score accross all measures
-    rnk_all = rank(rnk_insp + rnk_ofs, ties.method = "first")
-  ) %>%
-  ungroup()
+  mutate(rnk1 = rank(desc(inspection_date), ties.method = "first")) %>%
+  ungroup() %>%
+  # Filter out duplicates
+  filter(rnk1 == 1) %>%
+  # Create rank for entries based on urn and inspection date
+  group_by(urn, inspection_date) %>% 
+  mutate(rnk2 = rank(desc(publication_date), ties.method = "first")) %>%
+  ungroup() %>%
+  # Filter out duplicates
+  filter(rnk2 == 1) %>%
+  # Subset to columns of interest
+  select(
+    urn,laestab,inspection_id,inspection_type,inspection_date,publication_date,
+    overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
+    early_years_provision_where_applicable,outcomes_for_children_and_learners,
+    quality_of_teaching_learning_and_assessment,personal_development_behaviour_and_welfare,
+    effectiveness_of_leadership_and_management,is_safeguarding_effective
+  )
 
-all_data <- ranked_data %>% 
-  # Remove those duplicates
-  filter(
-    n == 1 | (n > 1 & rnk_all == 1)
-  ) %>%
-  select(-n, -rnk_insp, -rnk_ofs, -rnk_all)
-
-write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE)
+write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 
 # Set git tags for release ------------------------------------------------
 
