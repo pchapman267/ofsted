@@ -102,7 +102,6 @@ read_ofsted_colnames <- function(i){
     filter(
       !grepl("previous", col), 
       !grepl("short", col),
-      !grepl("at_time_of", col),
       !(col %in% c("web_link", "school_name",
                    "ofsted_phase", "type_of_education", "admissions_policy",
                    "sixth_form", "faith_denomination", "ofsted_region", "region",
@@ -114,7 +113,8 @@ read_ofsted_colnames <- function(i){
                    "religious_ethos", "issue_details", "the_income_deprivation_affecting_children_index_idaci_2010_quintile",
                    "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
-                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping"
+                   "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
+                   "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection"
       ))
     )
   
@@ -141,6 +141,8 @@ clean_cols <- cols %>%
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
       col == "is_safeguarding_effective" ~ "is_safeguarding_effective",
+      col == "urn_at_time_of_latest_full_inspection" ~ "urn_at_time_of_latest_full_inspection",
+      col == "laestab_at_time_of_latest_full_inspection" ~ "laestab_at_time_of_latest_full_inspection",
       n == num_files ~ col,
       TRUE ~ "NA"
     )
@@ -174,6 +176,26 @@ clean_ofsted <- function(df){
     
   }
 
+  # Some of the old files dont have urn_at_time_of_latest_full_inspection
+  if (!("urn_at_time_of_latest_full_inspection" %in% names(df))) {
+    df <- df %>%
+      mutate(urn_at_time_of_latest_full_inspection = NA)
+    
+    print("No urn_at_time_of_latest_full_inspection field, NA imputed")
+    
+  }
+  
+  # Some of the old files dont have laestab_at_time_of_latest_full_inspection
+  if (!("laestab_at_time_of_latest_full_inspection" %in% names(df))) {
+    df <- df %>%
+      mutate(laestab_at_time_of_latest_full_inspection = NA)
+    
+    print("No laestab_at_time_of_latest_full_inspection field, NA imputed")
+    
+  }
+  
+  
+  
   df
   
 }
@@ -236,7 +258,9 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
     effectiveness_of_leadership_and_management = leadership_and_management,
-    is_safeguarding_effective = NA
+    is_safeguarding_effective = NA,
+    urn_at_time_of_latest_full_inspection = NA,
+    laestab_at_time_latest_full_inspection = NA
   )
 
 
@@ -258,9 +282,16 @@ all_data <- monthly_clean_dataset %>%
   ungroup() %>%
   # Filter out duplicates
   filter(rnk2 == 1) %>%
+  # Filter out fresh starts based on differing laestabs
+  filter(laestab == laestab_at_time_of_latest_full_inspection | is.na(laestab_at_time_of_latest_full_inspection)) %>%
+  # Rename at time fields
+  rename(
+    urn_at_time_of_inspection = urn_at_time_of_latest_full_inspection,
+    laestab_at_time_of_inspection = laestab_at_time_of_latest_full_inspection
+  ) %>%
   # Subset to columns of interest
   select(
-    urn,laestab,inspection_id,inspection_type,inspection_date,publication_date,
+    urn,laestab,urn_at_time_of_inspection, laestab_at_time_of_inspection, inspection_id,inspection_type,inspection_date,publication_date,
     overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
     early_years_provision_where_applicable,outcomes_for_children_and_learners,
     quality_of_teaching_learning_and_assessment,personal_development_behaviour_and_welfare,
