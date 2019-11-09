@@ -11,6 +11,10 @@ library(rvest)
 library(qdapRegex)
 library(lubridate)
 
+
+# Source the gias predecessors code ---------------------------------------
+source("R/gias_predecessors.R")
+
 # Create temp directory ---------------------------------------------------
 
 tmp_dir <- tempdir()
@@ -298,7 +302,76 @@ all_data <- monthly_clean_dataset %>%
     effectiveness_of_leadership_and_management,is_safeguarding_effective
   )
 
-write.csv(all_data, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+
+# Modify data to map to all successor schools -----------------------------
+
+# Add flag for if inspection is for urn based on number of predecessors
+all_data_inspection_urn_flag <- all_data %>%
+  left_join(n_predecessor, by = c("urn" = "URN")) %>%
+  mutate(n = ifelse(is.na(n), 0, n)) %>%
+  group_by(inspection_id) %>%
+  mutate(
+    inspection_urn_flag = ifelse(rank(n, ties.method = "first") == 1, 1, 0)
+  ) 
+
+# Mark the inspection urn of all inspections
+all_data_inspection_urn_all <- all_data_inspection_urn_flag %>%
+  left_join(
+    all_data_inspection_urn_flag %>% 
+      filter(inspection_urn_flag == 1) %>%
+      select(urn, inspection_id),
+    by = c("inspection_id")
+  ) %>%
+  select(
+    urn = urn.x,
+    inspection_urn = urn.y,
+    inspection_id,
+    inspection_type,
+    inspection_date,
+    publication_date,
+    overall_effectiveness,
+    category,
+    x16_to_19_study_programmes_where_applicable,
+    early_years_provision_where_applicable,
+    outcomes_for_children_and_learners,
+    quality_of_teaching_learning_and_assessment,
+    personal_development_behaviour_and_welfare,
+    effectiveness_of_leadership_and_management,
+    is_safeguarding_effective
+  )
+
+# Create dataset of just inspections with same urn and inspection urn
+all_data_inspection_urn_only <- all_data_inspection_urn_all %>%
+  filter(urn == inspection_urn)
+
+# Create dataset of inspections for all successors
+all_data_non_inspection_urn_only <- predecessor %>%
+  select(URN, LinkURN) %>%
+  left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
+  filter(!is.na(inspection_id)) %>% 
+  rename(urn = URN, inspection_urn = LinkURN)
+
+# Bind togehter to make the "calculated dataset"
+ofsted_all_calculated_successors <- bind_rows(
+  all_data_inspection_urn_only,
+  all_data_non_inspection_urn_only
+)
+
+# Identify the successors that ofsted mark that arent in our dataset
+left_overs <- all_data_inspection_urn_all %>%
+  select(urn, inspection_id) %>%
+  left_join(ofsted_all_calculated_successors, by = c("urn", "inspection_id")) %>%
+  filter(is.na(overall_effectiveness)) %>%
+  select(urn, inspection_id) %>% 
+  left_join(all_data_inspection_urn_all, by = c("urn", "inspection_id")) %>%
+  select(urn, inspection_urn, inspection_id, 4:ncol(.))
+
+all_data_final <- bind_rows(
+  ofsted_all_calculated_successors,
+  left_overs
+)
+
+write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 
 # Set git tags for release ---------------------------------------------------
 
