@@ -68,9 +68,4 @@ while (rows == TRUE) {
 predecessors <- predecessors %>% 
   group_by(URN, LinkURN) %>%
   filter(Level == min(Level, na.rm = TRUE)) %>%
-  ungroup() 
-
-n_predecessor <- predecessor %>%
-  group_by(URN) %>%
-  count() %>%
   ungroup()

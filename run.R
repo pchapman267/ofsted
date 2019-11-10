@@ -305,14 +305,14 @@ all_data <- monthly_clean_dataset %>%
 
 # Modify data to map to all successor schools -----------------------------
 
-# Add flag for if inspection is for urn based on number of predecessors
-all_data_inspection_urn_flag <- all_data %>%
-  left_join(n_predecessor, by = c("urn" = "URN")) %>%
-  mutate(n = ifelse(is.na(n), 0, n)) %>%
+# Add flag for inspection urn based on earliest closed date
+all_data_inspection_urn_flag <- all_data %>% 
+  left_join(gias, by = c("urn")) %>%
   group_by(inspection_id) %>%
   mutate(
-    inspection_urn_flag = ifelse(rank(n, ties.method = "first") == 1, 1, 0)
-  ) 
+    inspection_urn_flag = rank(close_date, ties.method = "average")
+  ) %>%
+  ungroup()
 
 # Mark the inspection urn of all inspections
 all_data_inspection_urn_all <- all_data_inspection_urn_flag %>%
