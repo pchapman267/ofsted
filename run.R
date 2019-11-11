@@ -14,6 +14,7 @@ library(lubridate)
 
 # Source the gias predecessors code ---------------------------------------
 source("R/gias_predecessors.R")
+source("R/gias.R")
 
 # Create temp directory ---------------------------------------------------
 
@@ -349,7 +350,7 @@ all_data_non_inspection_urn_only <- predecessor %>%
   select(URN, LinkURN) %>%
   left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
   filter(!is.na(inspection_id)) %>% 
-  rename(urn = URN, inspection_urn = LinkURN)
+  rename(urn = URN)
 
 # Bind togehter to make the "calculated dataset"
 ofsted_all_calculated_successors <- bind_rows(
