@@ -346,7 +346,7 @@ all_data_inspection_urn_only <- all_data_inspection_urn_all %>%
   filter(urn == inspection_urn)
 
 # Create dataset of inspections for all successors
-all_data_non_inspection_urn_only <- predecessor %>%
+all_data_non_inspection_urn_only <- predecessors %>%
   select(URN, LinkURN) %>%
   left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
   filter(!is.na(inspection_id)) %>% 
@@ -373,6 +373,7 @@ all_data_final <- bind_rows(
 )
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+
 
 # Set git tags for release ---------------------------------------------------
 
