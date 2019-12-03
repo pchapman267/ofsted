@@ -350,7 +350,8 @@ all_data_non_inspection_urn_only <- predecessors %>%
   select(URN, LinkURN) %>%
   left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
   filter(!is.na(inspection_id)) %>% 
-  rename(urn = URN)
+  rename(urn = URN) %>%
+  select(-LinkURN)
 
 # Bind togehter to make the "calculated dataset"
 ofsted_all_calculated_successors <- bind_rows(
