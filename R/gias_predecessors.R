@@ -1,7 +1,7 @@
 library(dplyr)
 library(janitor)
 
-links <- read.csv(paste0("http://ea-edubase-api-prod.azurewebsites.net/edubase/links_edubasealldata",gsub("-","",Sys.Date()),".csv"))
+links <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/links_edubasealldata",gsub("-","",Sys.Date()),".csv"))
 
 successor_links <- links %>%
   filter(grepl("Suc", LinkType)) %>%

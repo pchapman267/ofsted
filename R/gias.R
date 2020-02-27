@@ -1,7 +1,7 @@
 library(dplyr)
 library(janitor)
 
-gias <- read.csv(paste0("http://ea-edubase-api-prod.azurewebsites.net/edubase/edubasealldata",gsub("-","",Sys.Date()),".csv")) %>%
+gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv")) %>%
   clean_names() %>%
   mutate(
     open_date = as.Date(open_date, format = "%d-%m-%Y"),
