@@ -107,6 +107,7 @@ read_ofsted_colnames <- function(i){
     filter(
       !grepl("previous", col), 
       !grepl("short", col),
+      !grepl("section_8", col),
       !(col %in% c("web_link", "school_name",
                    "ofsted_phase", "type_of_education", "admissions_policy",
                    "sixth_form", "faith_denomination", "ofsted_region", "region",
@@ -119,7 +120,9 @@ read_ofsted_colnames <- function(i){
                    "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
                    "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
-                   "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection"
+                   "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection",
+                   "x_1"
+                   
       ))
     )
   
@@ -145,7 +148,7 @@ clean_cols <- cols %>%
                  "x16_to_19_study_programmes_where_applicable") 
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
-      col == "is_safeguarding_effective" ~ "is_safeguarding_effective",
+      col == c("is_safeguarding_effective","safeguarding_is_effective") ~ "is_safeguarding_effective",
       col == "urn_at_time_of_latest_full_inspection" ~ "urn_at_time_of_latest_full_inspection",
       col == "laestab_at_time_of_latest_full_inspection" ~ "laestab_at_time_of_latest_full_inspection",
       n == num_files ~ col,
