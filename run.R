@@ -148,9 +148,16 @@ clean_cols <- cols %>%
                  "x16_to_19_study_programmes_where_applicable") 
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
-      col == c("is_safeguarding_effective","safeguarding_is_effective") ~ "is_safeguarding_effective",
+      col %in% c("is_safeguarding_effective","safeguarding_is_effective") ~ "is_safeguarding_effective",
       col == "urn_at_time_of_latest_full_inspection" ~ "urn_at_time_of_latest_full_inspection",
       col == "laestab_at_time_of_latest_full_inspection" ~ "laestab_at_time_of_latest_full_inspection",
+      col == "personal_development_behaviour_and_welfare" ~ "personal_development_behaviour_and_welfare",
+      col == "quality_of_teaching_learning_and_assessment" ~ "quality_of_teaching_learning_and_assessment",
+      
+      col == "quality_of_education" ~ "quality_of_education",
+      col == "personal_development" ~ "personal_development",
+      col == "behaviour_and_attitudes" ~ "behaviour_and_attitudes",
+      
       n == num_files ~ col,
       TRUE ~ "NA"
     )
