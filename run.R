@@ -448,7 +448,7 @@ write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 print("GitHub Deployment -----------------------------------------------------")
 
 # Set git user name and email
-git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
+git2r::config(user.name = "pchapman267", user.email = "paul.chapman@education.gov.uk")
 
 # Create tag based on latest insepction dates in all_data
 max_date <- max(all_data$inspection_date, na.rm = TRUE)
