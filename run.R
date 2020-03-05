@@ -172,6 +172,63 @@ clean_ofsted <- function(df){
 
   }
   
+   # Some of the old files dont have outcomes_for_children_and_learners
+  if (!("outcomes_for_children_and_learners" %in% names(df))) {
+    df <- df %>%
+      mutate(outcomes_for_children_and_learners = NA)
+    
+    print("No outcomes_for_children_and_learners field, NA imputed")
+    
+  } 
+  
+     # Some of the old files dont have quality_of_teaching_learning_and_assessment
+  if (!("quality_of_teaching_learning_and_assessment" %in% names(df))) {
+    df <- df %>%
+      mutate(quality_of_teaching_learning_and_assessment = NA)
+    
+    print("No quality_of_teaching_learning_and_assessment field, NA imputed")
+    
+  } 
+  
+     # Some of the old files dont have personal_development_behaviour_and_welfare
+  if (!("personal_development_behaviour_and_welfare" %in% names(df))) {
+    df <- df %>%
+      mutate(personal_development_behaviour_and_welfare = NA)
+    
+    print("No personal_development_behaviour_and_welfare field, NA imputed")
+    
+  } 
+  
+  
+     # Some of the old files dont have behaviour_and_attitudes
+  if (!("behaviour_and_attitudes" %in% names(df))) {
+    df <- df %>%
+      mutate(behaviour_and_attitudes = NA)
+    
+    print("No behaviour_and_attitudes field, NA imputed")
+    
+  } 
+  
+     # Some of the old files dont have quality_of_education
+  if (!("quality_of_education" %in% names(df))) {
+    df <- df %>%
+      mutate(quality_of_education = NA)
+    
+    print("No quality_of_education field, NA imputed")
+    
+  } 
+  
+     # Some of the old files dont have personal_development
+  if (!("personal_development" %in% names(df))) {
+    df <- df %>%
+      mutate(personal_development = NA)
+    
+    print("No personal_development field, NA imputed")
+    
+  } 
+  
+  
+  
   # Some of the old files dont have is_safeguarding_effective
   if (!("is_safeguarding_effective" %in% names(df))) {
     df <- df %>%
@@ -258,7 +315,7 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     overall_effectiveness,
     category,
     x16_to_19_study_programmes_where_applicable = sixth_form_provision,
-    outcomes_for_children_and_learners = early_years_provision,
+    early_years_provision_where_applicable = early_years_provision,
     outcomes_for_children_and_learners = how_well_do_pupils_achieve,
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
